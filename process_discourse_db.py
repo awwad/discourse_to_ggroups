@@ -36,6 +36,7 @@
      https://console.developers.google.com/start/api?id=gmail
      and download the client_id.json file. Renamed it to client_secret.json and
      put it in the working directory from which this script is to be run.
+   - Run only using Python2.
 
 
 """

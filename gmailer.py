@@ -9,6 +9,9 @@ https://stackoverflow.com/questions/37201250/sending-email-via-gmail-python
 User profile https://stackoverflow.com/users/3769451/apadana
 
 Modified very lightly by github.com/awwad
+
+This is Python2-compatible and not Python3-compatible.
+
 """
 import httplib2
 import os
