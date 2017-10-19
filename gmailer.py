@@ -4,11 +4,11 @@ Submits email via Gmail using oauth.
 Requires client_secret.json log-in from a configured Google app, which must
 be in the working directory.
 
-Credit for this module goes entirely to @apadana on StackOverflow.com,
+Credit for this module goes to @apadana on StackOverflow.com,
 https://stackoverflow.com/questions/37201250/sending-email-via-gmail-python
 User profile https://stackoverflow.com/users/3769451/apadana
 
-Modified very lightly by github.com/awwad
+Modified by github.com/awwad to add support for replies (threads).
 
 This is Python2-compatible and not Python3-compatible.
 
@@ -46,14 +46,17 @@ def get_credentials():
         print 'Storing credentials to ' + credential_path
     return credentials
 
-def SendMessage(sender, to, subject, msgHtml, msgPlain, attachmentFile=None):
+def SendMessage(
+    sender, to, subject, msgHtml, msgPlain, attachmentFile=None, threadId=None):
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('gmail', 'v1', http=http)
     if attachmentFile:
-        message1 = createMessageWithAttachment(sender, to, subject, msgHtml, msgPlain, attachmentFile)
+        message1 = createMessageWithAttachment(
+            sender, to, subject, msgHtml, msgPlain, attachmentFile, threadId)
     else:
-        message1 = CreateMessageHtml(sender, to, subject, msgHtml, msgPlain)
+        message1 = CreateMessageHtml(
+            sender, to, subject, msgHtml, msgPlain, threadId)
     result = SendMessageInternal(service, "me", message1)
     return result
 
@@ -67,17 +70,22 @@ def SendMessageInternal(service, user_id, message):
         return "Error"
     return "OK"
 
-def CreateMessageHtml(sender, to, subject, msgHtml, msgPlain):
+def CreateMessageHtml(sender, to, subject, msgHtml, msgPlain, thread_id=None):
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = to
     msg.attach(MIMEText(msgPlain, 'plain'))
     msg.attach(MIMEText(msgHtml, 'html'))
+
+    if thread_id is not None:
+      return {'raw': base64.urlsafe_b64encode(msg.as_string()),
+          'threadId': thread_id}
+
     return {'raw': base64.urlsafe_b64encode(msg.as_string())}
 
 def createMessageWithAttachment(
-    sender, to, subject, msgHtml, msgPlain, attachmentFile):
+    sender, to, subject, msgHtml, msgPlain, attachmentFile, threadId=None):
     """Create a message for an email.
 
     Args:
@@ -131,6 +139,10 @@ def createMessageWithAttachment(
     filename = os.path.basename(attachmentFile)
     msg.add_header('Content-Disposition', 'attachment', filename=filename)
     message.attach(msg)
+
+    if threadId is not None:
+        return {'raw': base64.urlsafe_b64encode(message.as_string()),
+            'threadId': threadId}
 
     return {'raw': base64.urlsafe_b64encode(message.as_string())}
 
