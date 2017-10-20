@@ -122,15 +122,15 @@ def harvest_from_psql_db():
 
   posts = cur.fetchall()
 
-  print('Retrieved ' + str(len(topics)) + ' topics '
-      'containing ' + str(len(posts)) + ' posts.')
+  print 'Retrieved ' + str(len(topics)) + ' topics ' \
+      'containing ' + str(len(posts)) + ' posts.'
 
   cur.execute(
       "SELECT id, username, name, approved, blocked, email FROM users")
 
   users = cur.fetchall()
 
-  print('Retrieved ' + str(len(users)) + ' users.')
+  print 'Retrieved ' + str(len(users)) + ' users.'
 
 
   return (topics, posts, users)
@@ -332,7 +332,7 @@ def mail_in_topic_digest(d, tid):
   elif not d[tid]['digest_plain'] or not d[tid]['digest_cooked']:
     raise Exception('Empty digest for tid ' + str(tid))
 
-  print('Sending in digests for topic ID ' + str(tid) + '...')
+  print 'Sending in digests for topic ID ' + str(tid) + '...'
 
   gmailer.SendMessage(
       BACKUP_MAILER,
