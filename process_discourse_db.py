@@ -385,7 +385,7 @@ def mail_topic_as_posts(d, tid):
     raise Exception('Unable to send initial message for topic ' + str(tid) +
         '; result is: ' + repr(result))
 
-  previous_message_id = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
+  d[tid]['last_message_id'] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
 
   d[tid]['thread_id'] = result['threadId']
 
@@ -410,7 +410,7 @@ def mail_topic_as_posts(d, tid):
       raise Exception('Unable to send post ' + str(i) + ' in topic ' +
           str(tid) + '; previous message id was: ' + previous_message_id)
 
-    previous_message_id = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
+    d[tid]['last_message_id'] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
     d[tid]['thread_id'] = result['threadId']
 
     time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
@@ -454,7 +454,7 @@ def mail_topics_as_posts_bf(d, tids=None):
       raise Exception('Topic ID ' + str(tid) + ' is not known.')
 
     d[tid]['thread_id'] = None
-    previous_message_id_by_tid[tid] = None # probably not useful
+    d[tid]['last_message_id'] = None # probably not useful
 
 
   for post_number in range(0, most_posts_in_one_topic):
@@ -477,14 +477,14 @@ def mail_topics_as_posts_bf(d, tids=None):
         text,
         image_url,  # attachment
         d[tid]['thread_id'],
-        previous_message_id_by_tid[tid])
+        d[tid]['last_message_id'])
 
       # Stop if a message fails to send.
       if not isinstance(result, dict) or 'labelIds' not in result or \
           'SENT' not in result['labelIds']:
         raise Exception('Unable to send post ' + str(post_number) +
             ' in topic ' + str(tid) + '; previous message id was: ' +
-            repr(previous_message_id_by_tid[tid]) + '; thread ID: ' +
+            repr(d[tid]['last_message_id']) + '; thread ID: ' +
             repr(d[tid]['thread_id']))
 
       time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
@@ -492,7 +492,7 @@ def mail_topics_as_posts_bf(d, tids=None):
       # Save thread ID so we can send the next post in the same topic to the
       # same thread.
       d[tid]['thread_id'] = result['threadId']
-      previous_message_id_by_tid[tid] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
+      d[tid]['last_message_id'] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
 
     print 'Waiting between rounds to help prevent out-of-order posts....'
     time.sleep(SLEEP_DURATION_BETWEEN_TOPIC_ROUNDS)
