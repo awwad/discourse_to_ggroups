@@ -598,6 +598,32 @@ def process_image_url(d, tid, post_number):
 
 
 
+def find_in_posts(text, d, tid=None):
+  posts = []
+
+  if tid is not None:
+    search_set = [tid]
+  else:
+    search_set = d.keys()
+
+  for tid in search_set:
+    for post_number in range(0, len(d[tid]['posts'])):
+      if text in d[tid]['posts'][post_number]['raw']:
+        posts.append((tid, post_number))
+
+  return posts
+
+
+
+
+
+def get_post_text(d, tid, post_number):
+  return d[tid]['posts'][post_number]['raw']
+
+
+
+
+
 def main():
   """
   See top of module for docstring.
