@@ -457,7 +457,7 @@ def mail_topics_as_posts_bf(d, tids=None):
 
 
   for post_number in range(0, most_posts_in_one_topic):
-    print('Sending post # ' + str(post_number) + ' in all topics.')
+    print('New round: preparing post #' + str(post_number) + ' in all topics.')
     for tid in tids:
 
       if post_number >= len(d[tid]['posts']):
@@ -481,8 +481,9 @@ def mail_topics_as_posts_bf(d, tids=None):
       # Stop if a message fails to send.
       if not isinstance(result, dict) or 'labelIds' not in result or \
           'SENT' not in result['labelIds']:
-        raise Exception('Unable to send post ' + str(i) + ' in topic ' +
-            str(tid) + '; previous message id was: ' + previous_message_id)
+        raise Exception('Unable to send post ' + str(post_number) +
+            ' in topic ' + str(tid) + '; previous message id was: ' +
+            previous_message_id_by_tid[tid])
 
       time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
 
@@ -491,6 +492,7 @@ def mail_topics_as_posts_bf(d, tids=None):
       d[tid]['thread_id'] = result['threadId']
       previous_message_id_by_tid[tid] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
 
+    print 'Waiting between rounds to help prevent out-of-order posts....'
     time.sleep(SLEEP_DURATION_BETWEEN_TOPIC_ROUNDS)
 
 
@@ -571,7 +573,7 @@ def process_image_url(d, tid, post_number):
 
   elif image_url.startswith('http://') or image_url.startswith('https://'):
     print 'Skipping attachment that was added as an http(s) link, ' \
-        'topic ' + str(tid) + ', post # ' + str(post_number) + '; ' \
+        'topic ' + str(tid) + ', post #' + str(post_number) + '; ' \
         'url: ' + image_url
     return None
 
@@ -583,7 +585,7 @@ def process_image_url(d, tid, post_number):
 
   if not os.path.exists(image_url):
     print 'Skipping attachment that cannot be found locally. ' \
-        'topic ' + str(tid) + ', post # ' + str(post_number) + '; ' \
+        'topic ' + str(tid) + ', post #' + str(post_number) + '; ' \
         'url: ' + image_url
     return None
 
