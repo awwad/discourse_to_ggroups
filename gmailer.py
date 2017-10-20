@@ -47,7 +47,8 @@ def get_credentials():
     return credentials
 
 def SendMessage(
-    sender, to, subject, msgHtml, msgPlain, attachmentFile=None, threadId=None):
+    sender, to, subject, msgHtml, msgPlain, attachmentFile=None,
+    threadId=None, reply_to=None):
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
     service = discovery.build('gmail', 'v1', http=http)
@@ -70,11 +71,14 @@ def SendMessageInternal(service, user_id, message):
         return "Error"
     return "OK"
 
-def CreateMessageHtml(sender, to, subject, msgHtml, msgPlain, thread_id=None):
+def CreateMessageHtml(
+    sender, to, subject, msgHtml, msgPlain, thread_id=None, reply_to=None):
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = to
+    if reply_to is not None:
+      msg["In-Reply-To"] = reply_to
     msg.attach(MIMEText(msgPlain, 'plain'))
     msg.attach(MIMEText(msgHtml, 'html'))
 
@@ -85,7 +89,8 @@ def CreateMessageHtml(sender, to, subject, msgHtml, msgPlain, thread_id=None):
     return {'raw': base64.urlsafe_b64encode(msg.as_string())}
 
 def createMessageWithAttachment(
-    sender, to, subject, msgHtml, msgPlain, attachmentFile, threadId=None):
+    sender, to, subject, msgHtml, msgPlain, attachmentFile,
+    threadId=None, reply_to=None):
     """Create a message for an email.
 
     Args:
@@ -103,6 +108,8 @@ def createMessageWithAttachment(
     message['to'] = to
     message['from'] = sender
     message['subject'] = subject
+    if reply_to is not None:
+      message['In-Reply-To'] = reply_to
 
     messageA = MIMEMultipart('alternative')
     messageR = MIMEMultipart('related')
