@@ -391,11 +391,7 @@ def mail_topic_as_posts(d, tid):
   for i in range(1, len(d[tid]['posts'])):
     (text_plain, text_html) = construct_post_email_contents(d, tid, i)
 
-    image_url = d[tid]['posts'][i]['image_url']
-    # Cut out path prefix for uploads directory if it's there and replace
-    # with location of uploads directory.
-    if image_url is not None and image_url.startswith(INTERNAL_UPLOAD_PATH_PREFIX):
-      image_url = PATH_TO_UPLOADS_DIR + image_url[len(INTERNAL_UPLOAD_PATH_PREFIX):]
+    image_url = process_image_url(d, tid, i)
 
     print 'Mailing ' + str(i) + 'th post.'
     result = gmailer.SendMessage(
@@ -469,11 +465,7 @@ def mail_topics_as_posts_bf(d, tids=None):
 
       (text, text_html) = construct_post_email_contents(d, tid, post_number)
 
-      image_url = d[tid]['posts'][post_number]['image_url']
-      # Cut out path prefix for uploads directory if it's there and replace
-      # with location of uploads directory.
-      if image_url is not None and image_url.startswith(INTERNAL_UPLOAD_PATH_PREFIX):
-        image_url = PATH_TO_UPLOADS_DIR + image_url[len(INTERNAL_UPLOAD_PATH_PREFIX):]
+      image_url = process_image_url(d, tid, post_number)
 
       print 'Mailing post ' + str(post_number) + ' in topic ' + str(tid)
       result = gmailer.SendMessage(
@@ -557,6 +549,43 @@ def construct_post_email_contents(d, tid, post_number):
 
 
 
+
+
+
+def process_image_url(d, tid, post_number):
+
+  """
+  Not secure. (ex-filtration)
+
+  Returns the image_url of any attachment to a post, if the attachment is
+  available locally in the filesystem. Else returns None.
+  """
+
+  image_url = d[tid]['posts'][post_number]['image_url']
+
+  if image_url is None:
+    return None
+
+  elif image_url.startswith('http://') or image_url.startswith('https://'):
+    print 'Skipping attachment that was added as an http(s) link, ' \
+        'topic ' + str(tid) + ', post # ' + str(post_number) + '; ' \
+        'url: ' + image_url
+    return None
+
+  elif image_url.startswith(INTERNAL_UPLOAD_PATH_PREFIX):
+    # Cut out path prefix for uploads directory if it's there and replace
+    # with location of uploads directory.
+    image_url = PATH_TO_UPLOADS_DIR + image_url[len(
+        INTERNAL_UPLOAD_PATH_PREFIX):]
+
+  if not os.path.exists(image_url):
+    print 'Skipping attachment that cannot be found locally. ' \
+        'topic ' + str(tid) + ', post # ' + str(post_number) + '; ' \
+        'url: ' + image_url
+    return None
+
+  else:
+    return image_url
 
 
 
