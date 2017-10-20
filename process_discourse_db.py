@@ -75,6 +75,10 @@ FORUM_ADDRESS = None # replace with Google Group's email address.
 
 DBNAME = None # replace with the name of the Discourse database
 
+SLEEP_DURATION_BETWEEN_MAILINGS = 0.2
+PATH_TO_UPLOADS_DIR = 'uploads/' # sitting in the working directory
+INTERNAL_UPLOAD_PATH_PREFIX = '<forum_location>/uploads/'
+INTERNAL_UPLOAD_PATH_PREFIX = '/forum/uploads/'
 
 
 def serialize_datetime(obj):
@@ -345,6 +349,129 @@ def mail_in_topic_digest(d, tid):
 
 
 
+def mail_topic_as_posts(d, tid):
+  """
+  Alternate method of operation:
+  Post posts individually.
+  """
+
+  # Send first post and save threadid.
+
+  print 'Mailing topic ' + str(tid) + ' as individual posts.'
+
+  # Send first post.
+  (text_plain, text_html) = construct_post_email_contents(d, tid, 0)
+  result = gmailer.SendMessage(
+      BACKUP_MAILER,
+      FORUM_ADDRESS,
+      d[tid]['title'],
+      text_html,
+      text_plain)
+
+  # SendMessage returns something like this:
+  # {'labelIds': ['SENT'],
+  #  'id': '1593541c29112345',
+  #  'threadId': '1593501de4512367'}
+
+  if not isinstance(result, dict) or 'labelIds' not in result or \
+      'SENT' not in result['labelIds']:
+    raise Exception('Unable to send initial message for topic ' + str(tid) +
+        '; result is: ' + repr(result))
+
+  previous_message_id = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
+
+  thread_id = result['threadId']
+
+  for i in range(1, len(d[tid]['posts'])):
+    (text_plain, text_html) = construct_post_email_contents(d, tid, i)
+
+    image_url = d[tid]['posts'][i]['image_url']
+    # Cut out path prefix for uploads directory if it's there and replace
+    # with location of uploads directory.
+    if image_url is not None and image_url.startswith(INTERNAL_UPLOAD_PATH_PREFIX):
+      image_url = PATH_TO_UPLOADS_DIR + image_url[len(INTERNAL_UPLOAD_PATH_PREFIX):]
+
+    print 'Mailing ' + str(i) + 'th post.'
+    result = gmailer.SendMessage(
+      BACKUP_MAILER,
+      FORUM_ADDRESS,
+      d[tid]['title'],
+      text_html,
+      text_plain,
+      image_url,  # attachment
+      thread_id,
+      previous_message_id)
+
+    if not isinstance(result, dict) or 'labelIds' not in result or \
+        'SENT' not in result['labelIds']:
+      raise Exception('Unable to send post ' + str(i) + ' in topic ' +
+          str(tid) + '; previous message id was: ' + previous_message_id)
+
+    previous_message_id = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
+
+    time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
+
+
+def construct_post_email_contents(d, tid, post_number):
+  """
+  Returns 2-tuple containing:
+   - plaintext message
+   - html message
+  """
+
+  if tid not in d:
+    raise Exception('Topic ' + str(tid) + ' is not known.')
+
+  elif 'posts' not in d[tid]:
+    raise Exception('Topic entry ' + str(tid) + ' lacks expected structure.')
+
+  elif len(d[tid]['posts']) < post_number:
+    raise Exception('Topic ' + str(tid) + ' does not have a ' +
+        str(post_number) + 'th reply.')
+
+  topic_title = d[tid]['title']
+  post = d[tid]['posts'][post_number]
+
+
+  text = ''
+
+  if post_number == 0:
+    text += 'Topic posted by Discourse-to-Google-Groups forum transfer.\n'
+
+  text += 'Post ' + str(post_number + 1) + ' of Topic "'
+
+  if len(topic_title) > 39: # 39 character max from topic title
+    text += topic_title[:36] + '...'
+  else:
+    text += topic_title
+
+  text += '"\n'
+
+  text += 'Post Created: ' + post['created'] + '\n'
+
+  if post['created'] != post['updated']:
+    text += 'Post Updated: ' + post['updated'] + '\n'
+
+  if post['image_url'] is not None:
+    text += 'Attached Image URL: ' + post['image_url'] + '\n'
+
+  text += 'Post Author ' + post['author'] + ' wrote:\n\n'
+
+  text_html = text.replace('\n', '<br />')
+
+  text += post['raw'] + '\n\n\n'
+  text_html += post['cooked'] + '<br /><br /><br />'
+
+
+  return text, text_html
+
+
+
+
+
+
+
+
 def main():
   """
   See top of module for docstring.
@@ -365,7 +492,7 @@ def main():
   if len(sys.argv) == 2 and sys.argv[1] == 'all':
     for tid in d:
       mail_in_topic_digest(d, tid)
-      time.sleep(0.5)
+      time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
     return
 
   elif len(sys.argv) == 2:
