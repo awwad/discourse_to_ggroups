@@ -76,6 +76,8 @@ FORUM_ADDRESS = None # replace with Google Group's email address.
 DBNAME = None # replace with the name of the Discourse database
 
 SLEEP_DURATION_BETWEEN_MAILINGS = 0.2
+SLEEP_DURATION_BETWEEN_TOPIC_ROUNDS = 10
+
 PATH_TO_UPLOADS_DIR = 'uploads/' # sitting in the working directory
 INTERNAL_UPLOAD_PATH_PREFIX = '<forum_location>/uploads/'
 INTERNAL_UPLOAD_PATH_PREFIX = '/forum/uploads/'
@@ -410,6 +412,90 @@ def mail_topic_as_posts(d, tid):
     previous_message_id = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
 
     time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
+
+
+
+
+
+
+def mail_topics_as_posts_bf(d, tids=None):
+  """
+  Mail all (or select) topics by individual post, breadth-first in order to
+  cut down on messages that are not in order.
+  (the reply-to component of a mail message requires the value provided to
+  the recipient of the email message, and so cannot be used to fix the sequence
+  of a set of email sent sequentially by the same sender. Gmail assigns the
+  references (reply-to) elements when it has processed each new message, and
+  the duration of delay in between messages to prevent race conditions leading
+  to posts out of order is actually quite long (certainly longer than 1s,
+  probably longer than 10s)).
+
+  On the other hand, if we send the first message of every topic first, then
+  the second message of every topic, then the third message of every topic,
+  etc., then the only rate limitation we have is that required to not anger
+  Google for sending messages too quickly. 0.2s should suffice there.
+
+  """
+
+  if tids is None:
+    tids = d.keys()
+
+  most_posts_in_one_topic = 0
+  thread_ids_by_tid = {}
+  previous_message_id_by_tid = {} # probably not useful
+
+  for tid in tids:
+
+    if len(d[tid]['posts']) > most_posts_in_one_topic:
+      most_posts_in_one_topic = len(d[tid]['posts'])
+
+    if tid not in d:
+      raise Exception('Topic ID ' + str(tid) + ' is not known.')
+
+    thread_ids_by_tid[tid] = None
+    previous_message_id_by_tid[tid] = None # probably not useful
+
+
+  for post_number in range(0, most_posts_in_one_topic):
+    print('Sending post # ' + str(post_number) + ' in all topics.')
+    for tid in tids:
+
+      if post_number >= len(d[tid]['posts']):
+        continue
+
+      (text, text_html) = construct_post_email_contents(d, tid, post_number)
+
+      image_url = d[tid]['posts'][post_number]['image_url']
+      # Cut out path prefix for uploads directory if it's there and replace
+      # with location of uploads directory.
+      if image_url is not None and image_url.startswith(INTERNAL_UPLOAD_PATH_PREFIX):
+        image_url = PATH_TO_UPLOADS_DIR + image_url[len(INTERNAL_UPLOAD_PATH_PREFIX):]
+
+      print 'Mailing post ' + str(post_number) + ' in topic ' + str(tid)
+      result = gmailer.SendMessage(
+        BACKUP_MAILER,
+        FORUM_ADDRESS,
+        d[tid]['title'],
+        text_html,
+        text,
+        image_url,  # attachment
+        thread_ids_by_tid[tid],
+        previous_message_id_by_tid[tid])
+
+      # Stop if a message fails to send.
+      if not isinstance(result, dict) or 'labelIds' not in result or \
+          'SENT' not in result['labelIds']:
+        raise Exception('Unable to send post ' + str(i) + ' in topic ' +
+            str(tid) + '; previous message id was: ' + previous_message_id)
+
+      time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
+
+      previous_message_id_by_tid[tid] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
+
+    time.sleep(SLEEP_DURATION_BETWEEN_TOPIC_ROUNDS)
+
+
+
 
 
 def construct_post_email_contents(d, tid, post_number):
