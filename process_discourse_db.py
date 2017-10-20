@@ -483,7 +483,8 @@ def mail_topics_as_posts_bf(d, tids=None):
           'SENT' not in result['labelIds']:
         raise Exception('Unable to send post ' + str(post_number) +
             ' in topic ' + str(tid) + '; previous message id was: ' +
-            previous_message_id_by_tid[tid])
+            repr(previous_message_id_by_tid[tid]) + '; thread ID: ' +
+            repr(d[tid]['thread_id']))
 
       time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
 
