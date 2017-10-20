@@ -366,52 +366,16 @@ def mail_topic_as_posts(d, tid):
 
   print 'Mailing topic ' + str(tid) + ' as individual posts.'
 
+  # Indicate that this is a new post.
+  d[tid]['last_message_id'] = None
+  d[tid]['thread_id'] = None
+
   # Send first post.
-  (text_plain, text_html) = construct_post_email_contents(d, tid, 0)
-  result = gmailer.SendMessage(
-      BACKUP_MAILER,
-      FORUM_ADDRESS,
-      d[tid]['title'],
-      text_html,
-      text_plain)
-
-  # SendMessage returns something like this:
-  # {'labelIds': ['SENT'],
-  #  'id': '1593541c29112345',
-  #  'threadId': '1593501de4512367'}
-
-  if not isinstance(result, dict) or 'labelIds' not in result or \
-      'SENT' not in result['labelIds']:
-    raise Exception('Unable to send initial message for topic ' + str(tid) +
-        '; result is: ' + repr(result))
-
-  d[tid]['last_message_id'] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
-
-  d[tid]['thread_id'] = result['threadId']
+  mail_one_post(d, tid, 0)
 
   for i in range(1, len(d[tid]['posts'])):
-    (text_plain, text_html) = construct_post_email_contents(d, tid, i)
 
-    image_url = process_image_url(d, tid, i)
-
-    print 'Mailing ' + str(i) + 'th post.'
-    result = gmailer.SendMessage(
-      BACKUP_MAILER,
-      FORUM_ADDRESS,
-      d[tid]['title'],
-      text_html,
-      text_plain,
-      image_url,  # attachment
-      thread_id,
-      previous_message_id)
-
-    if not isinstance(result, dict) or 'labelIds' not in result or \
-        'SENT' not in result['labelIds']:
-      raise Exception('Unable to send post ' + str(i) + ' in topic ' +
-          str(tid) + '; previous message id was: ' + previous_message_id)
-
-    d[tid]['last_message_id'] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
-    d[tid]['thread_id'] = result['threadId']
+    mail_one_post(d, tid, i)
 
     time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
 
@@ -464,28 +428,7 @@ def mail_topics_as_posts_bf(d, tids=None):
       if post_number >= len(d[tid]['posts']):
         continue
 
-      (text, text_html) = construct_post_email_contents(d, tid, post_number)
-
-      image_url = process_image_url(d, tid, post_number)
-
-      print 'Mailing post ' + str(post_number) + ' in topic ' + str(tid)
-      result = gmailer.SendMessage(
-        BACKUP_MAILER,
-        FORUM_ADDRESS,
-        d[tid]['title'],
-        text_html,
-        text,
-        image_url,  # attachment
-        d[tid]['thread_id'],
-        d[tid]['last_message_id'])
-
-      # Stop if a message fails to send.
-      if not isinstance(result, dict) or 'labelIds' not in result or \
-          'SENT' not in result['labelIds']:
-        raise Exception('Unable to send post ' + str(post_number) +
-            ' in topic ' + str(tid) + '; previous message id was: ' +
-            repr(d[tid]['last_message_id']) + '; thread ID: ' +
-            repr(d[tid]['thread_id']))
+      mail_one_post(d, tid, post_number)
 
       time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
 
@@ -501,11 +444,56 @@ def mail_topics_as_posts_bf(d, tids=None):
 
 
 
+def mail_one_post(d, tid, post_number, thread_id=None, last_message_id=None):
+
+  (text, text_html) = construct_post_email_contents(d, tid, post_number)
+
+  image_url = process_image_url(d, tid, post_number)
+
+  if thread_id is None:
+    thread_id = d[tid]['thread_id']
+
+  if last_message_id is None:
+    last_message_id = d[tid]['last_message_id']
+
+  print 'Mailing post ' + str(post_number) + ' in topic ' + str(tid)
+  result = gmailer.SendMessage(
+    BACKUP_MAILER,
+    FORUM_ADDRESS,
+    d[tid]['title'],
+    text_html,
+    text,
+    image_url,  # attachment
+    thread_id,
+    last_message_id)
+
+  # SendMessage returns something like this:
+  # {'labelIds': ['SENT'],
+  #  'id': '1593541c29112345',
+  #  'threadId': '1593501de4512367'}
+
+  # Stop if a message fails to send.
+  if not isinstance(result, dict) or 'labelIds' not in result or \
+      'SENT' not in result['labelIds']:
+    raise Exception('Unable to send post ' + str(post_number) +
+        ' in topic ' + str(tid) + '; previous message id was: ' +
+        repr(previous_message_id_by_tid[tid]) + '; thread ID: ' +
+        repr(d[tid]['thread_id']))
+
+  d[tid]['thread_id'] = result['threadId']
+  d[tid]['last_message_id'] = result['id']
+
+
+
+
+
 def construct_post_email_contents(d, tid, post_number):
   """
   Returns 2-tuple containing:
    - plaintext message
    - html message
+
+  Adds a special label for the beginning of the topic if post_number is 0.
   """
 
   if tid not in d:
