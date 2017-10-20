@@ -387,7 +387,7 @@ def mail_topic_as_posts(d, tid):
 
   previous_message_id = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
 
-  thread_id = result['threadId']
+  d[tid]['thread_id'] = result['threadId']
 
   for i in range(1, len(d[tid]['posts'])):
     (text_plain, text_html) = construct_post_email_contents(d, tid, i)
@@ -411,6 +411,7 @@ def mail_topic_as_posts(d, tid):
           str(tid) + '; previous message id was: ' + previous_message_id)
 
     previous_message_id = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
+    d[tid]['thread_id'] = result['threadId']
 
     time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
 
