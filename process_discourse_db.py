@@ -442,7 +442,6 @@ def mail_topics_as_posts_bf(d, tids=None):
     tids = d.keys()
 
   most_posts_in_one_topic = 0
-  thread_ids_by_tid = {}
   previous_message_id_by_tid = {} # probably not useful
 
   for tid in tids:
@@ -453,7 +452,7 @@ def mail_topics_as_posts_bf(d, tids=None):
     if tid not in d:
       raise Exception('Topic ID ' + str(tid) + ' is not known.')
 
-    thread_ids_by_tid[tid] = None
+    d[tid]['thread_id'] = None
     previous_message_id_by_tid[tid] = None # probably not useful
 
 
@@ -476,7 +475,7 @@ def mail_topics_as_posts_bf(d, tids=None):
         text_html,
         text,
         image_url,  # attachment
-        thread_ids_by_tid[tid],
+        d[tid]['thread_id'],
         previous_message_id_by_tid[tid])
 
       # Stop if a message fails to send.
@@ -487,6 +486,9 @@ def mail_topics_as_posts_bf(d, tids=None):
 
       time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
 
+      # Save thread ID so we can send the next post in the same topic to the
+      # same thread.
+      d[tid]['thread_id'] = result['threadId']
       previous_message_id_by_tid[tid] = result['id'] # not currently used, but could avoid races? -- no. The reply-to reference should be set using information received by the recipient, I think.... Or, actually, by the mail server. We don't have that info.
 
     time.sleep(SLEEP_DURATION_BETWEEN_TOPIC_ROUNDS)
