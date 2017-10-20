@@ -630,10 +630,7 @@ def main():
 
 
   if len(sys.argv) == 2 and sys.argv[1] == 'all':
-    for tid in d:
-      # __OLD_mail_in_topic_digest(d, tid)
-      mail_topic_as_posts(d, tid)
-      time.sleep(SLEEP_DURATION_BETWEEN_MAILINGS)
+    mail_topics_as_posts_bf(d)
     return
 
   elif len(sys.argv) == 2:
@@ -643,7 +640,7 @@ def main():
       raise Exception('Unknown topic ID ' + str(tid))
 
     else: # redundant control (if clause raised exception)
-      mail_in_topic_digest(d, tid_to_email)
+      mail_topic_as_posts(d, tid_to_email)
 
 
 
