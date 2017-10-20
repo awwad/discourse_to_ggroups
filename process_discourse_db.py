@@ -45,6 +45,7 @@ import json
 import datetime
 import gmailer
 import time
+import os.path
 
 # Column enumeration in the Topics, Posts, and Users tables in the
 # Discourse database.
